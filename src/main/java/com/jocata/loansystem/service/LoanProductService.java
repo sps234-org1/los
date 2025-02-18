@@ -13,6 +13,6 @@ public interface LoanProductService {
 
     public LoanProductResponseBean getLoanProductByAmount(double amount);
 
-
+    public LoanProductResponseBean getLoanProductsByTenure( String tenure );
 
 }

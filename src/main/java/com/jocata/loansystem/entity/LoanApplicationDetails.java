@@ -15,19 +15,13 @@ public class LoanApplicationDetails {
     @Column(name = "customer_id")
     private Integer customerId;
 
-    @ManyToOne
-    @JoinColumn(name = "customer_id", referencedColumnName = "customer_id", insertable = false, updatable = false)
-    private CustomerDetails customerDetails;
 
     @Column(name = "product_id")
     private Integer productId;
 
-    @OneToOne
-    @JoinColumn(name = "product_id", referencedColumnName = "product_id", insertable = false, updatable = false)
-    private LoanProductDetails loanProductDetails;
 
     @Column(name = "loan_amount")
-    private Double loanAmount;
+    private long loanAmount;
 
     @Column(name = "application_date")
     private String applicationDate;
@@ -41,10 +35,16 @@ public class LoanApplicationDetails {
     @Column(name = "loan_purpose")
     private String loanPurpose;
 
-
+    @ManyToOne
+    @JoinColumn(name = "customer_id", referencedColumnName = "customer_id", insertable = false, updatable = false)
+    private CustomerDetails customerDetails;
     public Integer getApplicationId() {
         return applicationId;
     }
+
+    @OneToOne
+    @JoinColumn(name = "product_id", referencedColumnName = "product_id", insertable = false, updatable = false)
+    private LoanProductDetails loanProductDetails;
 
     public Integer getCustomerId() {
         return customerId;
@@ -82,11 +82,11 @@ public class LoanApplicationDetails {
         this.loanProductDetails = loanProductDetails;
     }
 
-    public Double getLoanAmount() {
+    public long getLoanAmount() {
         return loanAmount;
     }
 
-    public void setLoanAmount(Double loanAmount) {
+    public void setLoanAmount(long loanAmount) {
         this.loanAmount = loanAmount;
     }
 

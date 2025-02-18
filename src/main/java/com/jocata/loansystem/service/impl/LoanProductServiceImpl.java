@@ -77,4 +77,20 @@ public class LoanProductServiceImpl implements LoanProductService {
         loanProductResponseBean.setId( loanProductDetails.getId() );
         return loanProductResponseBean;
     }
+
+    public LoanProductResponseBean getLoanProductsByTenure( String tenure ) {
+
+        LoanProductDetails loanProductDetails = loanProductDao.getLoanProductsByTenure( tenure );
+
+        LoanProductResponseBean loanProductResponseBean = new LoanProductResponseBean();
+
+        loanProductResponseBean.setProductName( loanProductDetails.getProductName() );
+        loanProductResponseBean.setInterestRate( loanProductDetails.getInterestRate() );
+        loanProductResponseBean.setTermMonths( loanProductDetails.getTermMonths() );
+        loanProductResponseBean.setMaxLoanAmount( loanProductDetails.getMaxLoanAmount() );
+        loanProductResponseBean.setMinLoanAmount( loanProductDetails.getMinLoanAmount() );
+        loanProductResponseBean.setDescription( loanProductDetails.getDescription() );
+        loanProductResponseBean.setId( loanProductDetails.getId() );
+        return loanProductResponseBean;
+    }
 }

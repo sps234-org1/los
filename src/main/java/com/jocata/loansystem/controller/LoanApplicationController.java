@@ -26,6 +26,7 @@ public class LoanApplicationController {
         return loanApplicationService.getLoanApplicationDetail(id);
     }
 
+    @GetMapping("/get/all")
     public List<LoanApplicationDetails> getAllLoanApplications() {
         return loanApplicationService.getAllLoanApplications();
     }

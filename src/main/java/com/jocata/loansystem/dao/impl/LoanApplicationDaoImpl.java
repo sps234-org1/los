@@ -2,11 +2,12 @@ package com.jocata.loansystem.dao.impl;
 
 import com.jocata.loansystem.dao.LoanApplicationDao;
 import com.jocata.loansystem.entity.LoanApplicationDetails;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
+import com.jocata.loansystem.service.impl.LoanApplicationServiceImpl;
 import jakarta.transaction.Transactional;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
@@ -17,6 +18,8 @@ import java.util.List;
 @EnableTransactionManagement
 public class LoanApplicationDaoImpl implements LoanApplicationDao {
 
+    private static final Logger logger = LoggerFactory.getLogger(LoanApplicationServiceImpl.class);
+
     @Autowired
     private final SessionFactory sessionFactory;
 
@@ -25,10 +28,17 @@ public class LoanApplicationDaoImpl implements LoanApplicationDao {
     }
 
     @Override
-    public String saveLoanApplication(LoanApplicationDetails LoanApplicationDetails) {
-        Session session = sessionFactory.openSession();
-        session.save(LoanApplicationDetails);
-        return "Loan Application created successfully";
+    public LoanApplicationDetails addLoanApplication(LoanApplicationDetails loanApplicationDetails ) {
+
+        LoanApplicationDetails existingLoanApplication = getLoanApplicationByCustomerId( loanApplicationDetails.getCustomerId().toString());
+        if ( existingLoanApplication == null ) {
+            Session session = sessionFactory.openSession();
+            session.persist( loanApplicationDetails );
+            logger.info("Loan application created successfully for customer id: " + loanApplicationDetails.getCustomerId());
+            return loanApplicationDetails;
+        }
+        logger.info("Loan application already exists for customer id: " + loanApplicationDetails.getCustomerId());
+        return null;
     }
 
     @Override

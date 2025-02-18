@@ -1,10 +1,13 @@
 package com.jocata.loansystem.dao;
 
+import com.jocata.loansystem.bean.response.AadhaarResponse;
 import com.jocata.loansystem.entity.CustomerDetails;
 
 public interface CustomerDao {
 
-    public String createCustomer(CustomerDetails customerDetails ) ;
+    public CustomerDetails addCustomer(CustomerDetails customerDetails ) ;
+
+    public CustomerDetails addCustomerUsingAadhaar(AadhaarResponse aadhaarResponse);
 
     public CustomerDetails getCustomerDetailsByAadhaar(String aadhaarNum );
 

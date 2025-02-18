@@ -37,4 +37,12 @@ public class LoanProductDaoImpl implements LoanProductDao {
                 .setParameter("amount", amount)
                 .uniqueResult();
     }
+
+    public LoanProductDetails getLoanProductsByTenure( String tenure ) {
+        Session session = sessionFactory.getCurrentSession();
+        String hql = "FROM LoanProductDetails l WHERE l.productName = :tenure";
+        return session.createQuery(hql, LoanProductDetails.class)
+                .setParameter("tenure", tenure )
+                .uniqueResult();
+    }
 }

@@ -10,21 +10,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/test")
-public class TestController {
+@RequestMapping("/api/v1/credit")
+public class CreditScoreController {
 
     @Autowired
     private CreditScoreService creditScoreService;
 
-    @PostMapping("/credit/create")
+    @PostMapping("/create")
     public CreditScoreDetails createCreditScore(@RequestBody CreditScoreDetails creditScoreDetails) {
         return creditScoreService.createCreditScore( creditScoreDetails );
     }
-
-//    @RequestMapping("/credit/get")
-//    public CreditScoreDetails getCreditScoreDetail( String creditScoreId ) {
-//        return creditScoreService.getCreditScoreDetail( creditScoreId );
-//    }
-
 
 }

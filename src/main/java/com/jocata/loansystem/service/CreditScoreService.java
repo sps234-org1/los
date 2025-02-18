@@ -1,8 +1,10 @@
 package com.jocata.loansystem.service;
 
+import com.jocata.loansystem.bean.creditscore.CreditScoreRequestBean;
 import com.jocata.loansystem.entity.CreditScoreDetails;
 
 public interface CreditScoreService {
 
-    public String createCreditScore(CreditScoreDetails creditScoreDetails );
+    public CreditScoreDetails createCreditScore(CreditScoreDetails creditScoreDetails );
+
 }

@@ -8,7 +8,9 @@ public class LoanApplicationRequestBean {
 
     private String contactNumber;
 
-    private Double loanAmount;
+    private long annualIncome;
+
+    private long reqLoanAmount;
 
     private Integer requestedTerm;
 
@@ -38,12 +40,20 @@ public class LoanApplicationRequestBean {
         this.contactNumber = contactNumber;
     }
 
-    public Double getLoanAmount() {
-        return loanAmount;
+    public long getAnnualIncome() {
+        return annualIncome;
     }
 
-    public void setLoanAmount(Double loanAmount) {
-        this.loanAmount = loanAmount;
+    public void setAnnualIncome(long annualIncome) {
+        this.annualIncome = annualIncome;
+    }
+
+    public long getReqLoanAmount() {
+        return reqLoanAmount;
+    }
+
+    public void setReqLoanAmount(long reqLoanAmount) {
+        this.reqLoanAmount = reqLoanAmount;
     }
 
     public Integer getRequestedTerm() {

@@ -1,9 +1,6 @@
 package com.jocata.loansystem.service.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jocata.loansystem.bean.loanapplication.LoanApplicationRequestBean;
-import com.jocata.loansystem.bean.loanproduct.LoanProductResponseBean;
 import com.jocata.loansystem.bean.response.AadhaarResponse;
 import com.jocata.loansystem.bean.response.CibilResponse;
 import com.jocata.loansystem.bean.response.PanResponse;
@@ -11,21 +8,19 @@ import com.jocata.loansystem.dao.CreditScoreDao;
 import com.jocata.loansystem.dao.CustomerDao;
 import com.jocata.loansystem.dao.LoanApplicationDao;
 import com.jocata.loansystem.dao.LoanProductDao;
-import com.jocata.loansystem.entity.CreditScoreDetails;
 import com.jocata.loansystem.entity.CustomerDetails;
 import com.jocata.loansystem.entity.LoanApplicationDetails;
 import com.jocata.loansystem.entity.LoanProductDetails;
+import com.jocata.loansystem.service.ExternalService;
 import com.jocata.loansystem.service.LoanApplicationService;
+import com.jocata.loansystem.service.RiskAssessmentService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -48,331 +43,145 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
     private final LoanProductDao loanProductDao;
 
     @Autowired
-    private final RestTemplate restTemplate;
+    private final ExternalService externalService;
 
     @Autowired
-    public LoanApplicationServiceImpl(RestTemplate restTemplate, LoanApplicationDao loanApplicationDao, CreditScoreDao creditScoreDao
-            , CustomerDao customerDao, LoanProductDao loanProductDao) {
-        this.restTemplate = restTemplate;
+    private final RiskAssessmentService riskAssessmentService;
+
+    @Autowired
+    public LoanApplicationServiceImpl(LoanApplicationDao loanApplicationDao, CreditScoreDao creditScoreDao
+            , CustomerDao customerDao, LoanProductDao loanProductDao, ExternalService externalService, RiskAssessmentService riskAssessmentService) {
         this.loanApplicationDao = loanApplicationDao;
         this.creditScoreDao = creditScoreDao;
         this.customerDao = customerDao;
         this.loanProductDao = loanProductDao;
+        this.externalService = externalService;
+        this.riskAssessmentService = riskAssessmentService;
     }
+
+    String panUrl = "http://localhost:8080/externalservices2/api/v1/pan/getPan";
+    String aadhaarUrl = "http://localhost:8080/externalservices2/api/v1/aadhaar/getAadhaar";
+
+    String addCibilUrl = "http://localhost:8080/externalservices2/api/v1/cibil/create";
 
     @Override
     public String createLoanApplication(LoanApplicationRequestBean loanApplicationRequestBean) {
 
-        long start = System.currentTimeMillis();
-
-        String panUrl = "http://localhost:8080/externalservices2/api/v1/pan/getPan";
-        String aadhaarUrl = "http://localhost:8080/externalservices2/api/v1/aadhaar/getAadhaar";
         String cibilUrl = "http://localhost:8080/externalservices2/api/v1/cibil/getCibil";
-
+        long start = System.currentTimeMillis();
         AadhaarResponse aadhaarResponse = null;
         PanResponse panResponse = null;
         CibilResponse cibilResponse = null;
 
         try (ExecutorService executorService = Executors.newFixedThreadPool(3)) {
-            /**/
-            Future<AadhaarResponse> aadhaarFuture = executorService.submit(() -> getAadhaarResponse(aadhaarUrl));
-            Future<PanResponse> panFuture = executorService.submit(() -> getPanResponse(panUrl));
-            Future<CibilResponse> cibilFuture = executorService.submit(() -> getCibilResponse(cibilUrl));
-
+            Future<AadhaarResponse> aadhaarFuture = executorService.submit(() -> externalService.getAadhaarResponse(aadhaarUrl, loanApplicationRequestBean));
+            Future<PanResponse> panFuture = executorService.submit(() -> externalService.getPanResponse(panUrl, loanApplicationRequestBean));
+            Future<CibilResponse> cibilFuture = executorService.submit(() -> externalService.getCibilResponse(cibilUrl, loanApplicationRequestBean));
             aadhaarResponse = aadhaarFuture.get();
             panResponse = panFuture.get();
             cibilResponse = cibilFuture.get();
-
         } catch (Exception e) {
             msg("Error while fetching data from external services: " + e.getMessage());
         }
-
-
+        setDetails(panResponse, aadhaarResponse, cibilResponse, loanApplicationRequestBean);
         logger.info("Time taken to create loan application: {} ms", System.currentTimeMillis() - start);
 
-        return setDetails(panResponse, aadhaarResponse, cibilResponse, loanApplicationRequestBean);
+        return "Loan application created successfully";
     }
 
 
-    public String setDetails(PanResponse panResponse, AadhaarResponse aadhaarResponse, CibilResponse cibilResponse,
-                             LoanApplicationRequestBean loanApplicationRequestBean) {
+    public void setDetails(PanResponse panResponse, AadhaarResponse aadhaarResponse, CibilResponse cibilResponse,
+                           LoanApplicationRequestBean loanApplicationRequestBean) {
 
         if (aadhaarResponse == null) {
-            return msg("Aadhaar details not found");
+            msg("Aadhaar details not found");
+            return;
         }
-        setCustomerDetails(aadhaarResponse);
+        CustomerDetails customerDetails = customerDao.addCustomerUsingAadhaar(aadhaarResponse);
 
-        CustomerDetails customerDetails = customerDao.getCustomerDetailsByAadhaar(loanApplicationRequestBean.getAadhaarNum());
         if (customerDetails == null) {
-            return msg("Customer details not found");
+            msg("Customer details still does not exist");
+            return;
+        }
+
+        /**/
+        if (cibilResponse == null) {
+            msg("Cibil details not found");
+            return;
+        }
+        creditScoreDao.addCreditScoreDetailsUsingCibilResponse( cibilResponse, customerDetails );
+
+        if (panResponse == null) {
+            msg("PAN details not found");
+            return;
         }
 
         String customerId = customerDetails.getCustomerId().toString();
+        LoanApplicationDetails loanApplicationDetails = addLoanApplication(customerId, customerDetails, loanApplicationRequestBean);
 
-        if (cibilResponse == null) {
-            return msg("Cibil details not found");
-        }
-        setCreditScoreDetails(customerId, cibilResponse);
-
-        if (panResponse == null) {
-            return msg("PAN details not found");
+        if (loanApplicationDetails == null) {
+            msg("Loan application not created");
+            return;
         }
 
-        return setLoanApplicationDetails(customerId, customerDetails, loanApplicationRequestBean);
+        String res = riskAssessmentService.addRiskAssessmentDetailsUsingCibil(cibilResponse, loanApplicationRequestBean, loanApplicationDetails);
+        logger.info(res);
+
+        int newOutstandingBalance = (int)(Double.parseDouble( cibilResponse.getTotalOutstandingBalance() ) + loanApplicationDetails.getLoanAmount() );
+
+        setCibilDetails( newOutstandingBalance, cibilResponse );
+        logger.info("Cibil details added successfully :{}", cibilResponse.getPan());
+
     }
 
-    public String msg(String m) {
-        logger.info(m);
-        return m;
+    public void setCibilDetails( long newOutstandingBalance, CibilResponse cibilResponse ) {
+
+        CibilResponse newCibilInfo = new CibilResponse();
+        newCibilInfo.setPan( cibilResponse.getPan() );
+        newCibilInfo.setCreditScore( cibilResponse.getCreditScore() );
+        newCibilInfo.setCreditHistory( cibilResponse.getCreditHistory() );
+        newCibilInfo.setTotalOutstandingBalance(  String.valueOf( newOutstandingBalance ) );
+        newCibilInfo.setRecentCreditInquiries( cibilResponse.getRecentCreditInquiries() );
+        newCibilInfo.setPaymentHistory( cibilResponse.getPaymentHistory() );
+        newCibilInfo.setCreditLimit( cibilResponse.getCreditLimit() );
+        newCibilInfo.setStatus( "Active" );
+        newCibilInfo.setReportDate( String.valueOf(LocalDate.now()) );
+        externalService.addCibilDetails( addCibilUrl, newCibilInfo );
     }
 
-    public void setCustomerDetails(AadhaarResponse aadhaarResponse) {
+    public LoanApplicationDetails addLoanApplication(String customerId, CustomerDetails customerDetails, LoanApplicationRequestBean loanApplicationRequestBean) {
 
-        CustomerDetails customerDetails = new CustomerDetails();
-        customerDetails.setIdentityNumber(aadhaarResponse.getAadhaarNum());
-        String name[] = aadhaarResponse.getFullName().split(" ");
-        customerDetails.setFirstName(name[0]);
-        customerDetails.setLastName(name[1]);
-        customerDetails.setDob(aadhaarResponse.getDob());
-        customerDetails.setAddress(aadhaarResponse.getAddress());
-        customerDetails.setPhoneNumber(aadhaarResponse.getContactNumber());
-        customerDetails.setEmail(aadhaarResponse.getEmail());
-
-        CustomerDetails customerDetails2 = customerDao.getCustomerDetailsByAadhaar(aadhaarResponse.getAadhaarNum());
-
-        if (customerDetails2 == null) {
-            customerDao.createCustomer(customerDetails);
-        } else {
-            logger.info("Customer already exists");
-            customerDetails.setCustomerId(customerDetails2.getCustomerId());
-            customerDao.updateCustomer(customerDetails);
-        }
-    }
-
-
-    public void setCreditScoreDetails(String customerId, CibilResponse cibilResponse) {
-
-        CreditScoreDetails creditScoreDetails = new CreditScoreDetails();
-
-        String creditScore = (cibilResponse.getCreditScore() == null) ? "0" : cibilResponse.getCreditScore();
-        String reportDate = (cibilResponse.getReportDate() == null) ? LocalDate.now().toString() : cibilResponse.getReportDate();
-
-        creditScoreDetails.setCustomerId(Integer.parseInt(customerId));
-        creditScoreDetails.setCreditScore(creditScore);
-        creditScoreDetails.setCreditScoreDate(reportDate);
-
-        CreditScoreDetails creditScoreDetails2 = creditScoreDao.getCreditScoreDetailsByCustomer(customerId);
-
-        if (creditScoreDetails2 == null) {
-            creditScoreDao.createCreditScore(creditScoreDetails);
-        } else {
-            logger.info("Credit score already exists");
-            creditScoreDetails.setCreditScoreId(creditScoreDetails2.getCreditScoreId());
-            creditScoreDao.updateCreditScore(creditScoreDetails);
-        }
-    }
-
-    public String setLoanApplicationDetails(String customerId, CustomerDetails customerDetails, LoanApplicationRequestBean loanApplicationRequestBean) {
-
-        double loanAmount = loanApplicationRequestBean.getLoanAmount();
-
+        long loanAmount = loanApplicationRequestBean.getReqLoanAmount();
         LoanProductDetails loanProductDetails = loanProductDao.getLoanProductByAmount(loanAmount);
-
-        Integer productId = loanProductDetails.getId() == null
-                ? 1 : loanProductDao.getLoanProductByAmount(loanAmount).getId();
-
+        Integer productId = loanProductDetails.getId();
+        if ( productId == null) {
+            msg("Loan product not found");
+            return null;
+        }
         if (loanAmount < 0) {
-            return msg("Loan amount cannot be negative");
+            msg("Loan amount cannot be negative");
+            return null;
         }
-
         if (loanAmount > 1000000) {
-            return msg("Loan amount cannot exceed 1000000");
+            msg("Loan amount cannot exceed 1000000");
+            return null;
         }
-
         if (loanAmount < 10000) {
-            return msg("Loan amount cannot be less than 10000");
+            msg("Loan amount cannot be less than 10000");
+            return null;
         }
-
-        LoanApplicationDetails existingLoanApplication = loanApplicationDao.getLoanApplicationByCustomerId(customerId);
-
         LoanApplicationDetails loanApplicationDetails = new LoanApplicationDetails();
 
         loanApplicationDetails.setCustomerId(Integer.parseInt(customerId));
         loanApplicationDetails.setProductId(productId);
-        loanApplicationDetails.setLoanProductDetails( loanProductDetails );
+        loanApplicationDetails.setLoanProductDetails(loanProductDetails);
         loanApplicationDetails.setCustomerDetails(customerDetails);
         loanApplicationDetails.setApplicationDate(LocalDate.now().toString());
         loanApplicationDetails.setLoanAmount(loanAmount);
         loanApplicationDetails.setRequestedTerm(loanApplicationRequestBean.getRequestedTerm());
         loanApplicationDetails.setLoanPurpose(loanApplicationRequestBean.getLoanPurpose());
-        loanApplicationDetails.setStatus("Pending");
-
-
-        String loanPurpose1 = loanApplicationRequestBean.getLoanPurpose();
-        String loanPurpose2 = existingLoanApplication.getLoanPurpose();
-
-        logger.info("Loan purpose 1: {} Loan purpose 2: {}", loanPurpose1, loanPurpose2);
-
-        if ( existingLoanApplication == null  ) {
-            return loanApplicationDao.saveLoanApplication(loanApplicationDetails);
-        } else {
-            if (loanPurpose1.equals(loanPurpose2)) {
-                msg("Loan application already exists");
-            }
-            else {
-                return loanApplicationDao.saveLoanApplication(loanApplicationDetails);
-            }
-
-            loanApplicationDetails.setApplicationId(existingLoanApplication.getApplicationId());
-            return loanApplicationDao.updateLoanApplication(loanApplicationDetails);
-        }
-    }
-
-    PanResponse getPanResponse(String panUrl) {
-
-        PanResponse panResponse = new PanResponse();
-
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            String input1 = objectMapper.writeValueAsString(Map.of(
-                    "txnId", "1",
-                    "panPayload", Map.of("panNumber", "ABCDE1234Z")
-            ));
-
-            HttpHeaders httpHeaders1 = new HttpHeaders();
-            httpHeaders1.add(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
-            httpHeaders1.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-            logger.info("Sending request to external service pan: {}", panUrl);
-
-            HttpEntity<String> requestEntity1 = new HttpEntity<>(input1, httpHeaders1);
-
-            ResponseEntity<String> responseEntity1 = restTemplate.exchange(panUrl, HttpMethod.POST, requestEntity1, String.class);
-            String res = responseEntity1.getBody();
-
-            JsonNode panData = objectMapper.readTree(res);
-            if (panData != null) {
-                if (panData.has("panNum")) {
-                    panResponse.setPanNum(panData.get("panNum").asText());
-                }
-                if (panData.has("fullName")) {
-                    panResponse.setFullName(panData.get("fullName").asText());
-                }
-                if (panData.has("dob")) {
-                    panResponse.setDob(panData.get("dob").asText());
-                }
-                if (panData.has("issueDate")) {
-                    panResponse.setIssueDate(panData.get("issueDate").asText());
-                }
-                if (panData.has("status")) {
-                    panResponse.setStatus(panData.get("status").asText());
-                }
-                logger.info("PAN details fetched successfully");
-            }
-
-        } catch (Exception e) {
-            logger.error("Error while fetching PAN details: {}", e.getMessage());
-        }
-        return panResponse;
-    }
-
-    AadhaarResponse getAadhaarResponse(String aadhaarUrl) {
-
-        AadhaarResponse aadhaarResponse = new AadhaarResponse();
-
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            String input2 = objectMapper.writeValueAsString(Map.of(
-                    "aadhaarNum", "123456789012"
-            ));
-
-            HttpHeaders httpHeaders2 = new HttpHeaders();
-            httpHeaders2.add(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
-            httpHeaders2.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-            logger.info("Sending request to external service aadhaar: {}", aadhaarUrl);
-
-            HttpEntity<String> requestEntity2 = new HttpEntity<>(input2, httpHeaders2);
-
-            ResponseEntity<String> responseEntity2 = restTemplate.exchange(aadhaarUrl, HttpMethod.POST, requestEntity2, String.class);
-            String res = responseEntity2.getBody();
-
-            JsonNode aadhaarData = objectMapper.readTree(res);
-
-            if (aadhaarData != null) {
-                if (aadhaarData.has("aadharNum")) {
-                    aadhaarResponse.setAadhaarNum(aadhaarData.get("aadharNum").asText());
-                }
-                if (aadhaarData.has("fullName")) {
-                    aadhaarResponse.setFullName(aadhaarData.get("fullName").asText());
-                }
-                if (aadhaarData.has("dob")) {
-                    aadhaarResponse.setDob(aadhaarData.get("dob").asText());
-                }
-                if (aadhaarData.has("gender")) {
-                    aadhaarResponse.setGender(aadhaarData.get("gender").asText());
-                }
-                if (aadhaarData.has("address")) {
-                    aadhaarResponse.setAddress(aadhaarData.get("address").asText());
-                }
-                if (aadhaarData.has("email")) {
-                    aadhaarResponse.setEmail(aadhaarData.get("email").asText());
-                }
-                if (aadhaarData.has("contactNumber")) {
-                    aadhaarResponse.setContactNumber(aadhaarData.get("contactNumber").asText());
-                }
-                if (aadhaarData.has("status")) {
-                    aadhaarResponse.setStatus(aadhaarData.get("status").asText());
-                }
-                if (aadhaarData.has("issueDate")) {
-                    aadhaarResponse.setIssueDate(aadhaarData.get("issueDate").asText());
-                }
-                logger.info("Aadhaar details fetched successfully");
-            }
-
-
-        } catch (Exception e) {
-            logger.error("Error while fetching Aadhaar details: {}", e.getMessage());
-        }
-        return aadhaarResponse;
-    }
-
-    CibilResponse getCibilResponse(String cibilUrl) {
-
-        CibilResponse cibilResponse = new CibilResponse();
-
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            String input3 = objectMapper.writeValueAsString(Map.of("pan", "ABCDE1234Z"));
-
-            HttpHeaders httpHeaders3 = new HttpHeaders();
-            httpHeaders3.add(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
-            httpHeaders3.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-            logger.info("Sending request to external service cibil : {}", cibilUrl);
-
-            HttpEntity<String> requestEntity3 = new HttpEntity<>(input3, httpHeaders3);
-
-            ResponseEntity<String> responseEntity3 = restTemplate.exchange(cibilUrl, HttpMethod.POST, requestEntity3, String.class);
-            String res = responseEntity3.getBody();
-
-            JsonNode cibilData = objectMapper.readTree(res);
-
-            if (cibilData != null) {
-                if (cibilData.has("creditScore")) {
-                    cibilResponse.setCreditScore(cibilData.get("creditScore").asText());
-                }
-                if (cibilData.has("reportDate")) {
-                    cibilResponse.setReportDate(cibilData.get("reportDate").asText());
-                }
-                if (cibilData.has("pan")) {
-                    cibilResponse.setPan(cibilData.get("pan").asText());
-                }
-                logger.info("CIBIL details fetched successfully");
-            }
-
-
-        } catch (Exception e) {
-            logger.error("Error while fetching CIBIL details: {}", e.getMessage());
-        }
-        return cibilResponse;
+        loanApplicationDetails.setStatus("Applied");
+        return loanApplicationDao.addLoanApplication(loanApplicationDetails);
     }
 
     public LoanApplicationDetails getLoanApplicationDetail(Integer loanApplicationId) {
@@ -391,8 +200,9 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
         return loanApplicationDao.deleteLoanApplication(id);
     }
 
-    private void validateInputData(LoanApplicationRequestBean loanApplicationRequestBean) {
-
+    public String msg(String m) {
+        logger.info(m);
+        return m;
     }
 
 

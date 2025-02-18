@@ -11,10 +11,6 @@ public class RiskAssessmentDetails {
     @GeneratedValue( strategy = GenerationType.IDENTITY)
     private Integer assessmentId;
 
-    @OneToOne
-    @JoinColumn( name = "application_id", referencedColumnName = "application_id", insertable = false, updatable = false)
-    private LoanApplicationDetails loanApplicationDetails;
-
     @Column( name = "credit_score")
     private Integer creditScore;
 
@@ -33,12 +29,12 @@ public class RiskAssessmentDetails {
     @Column( name = "assessment_date")
     private String assessmentDate;
 
+    @OneToOne
+    @JoinColumn( name = "application_id", referencedColumnName = "application_id", insertable = false, updatable = false)
+    private LoanApplicationDetails loanApplicationDetails;
+
     public Integer getAssessmentId() {
         return assessmentId;
-    }
-
-    public void setAssessmentId(Integer assessmentId) {
-        this.assessmentId = assessmentId;
     }
 
     public LoanApplicationDetails getLoanApplicationDetails() {

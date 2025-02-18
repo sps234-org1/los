@@ -38,6 +38,11 @@ public class LoanProductController {
         return loanProductService.getLoanProductByAmount(amount);
     }
 
+    @GetMapping("/get/{tenure}")
+    public LoanProductResponseBean getLoanProductsByTenure( @RequestParam int tenure ) {
+        return loanProductService.getLoanProductByAmount( tenure );
+    }
+
     @GetMapping("/get")
     public List<LoanProductResponseBean> getLoanProducts() {
         return loanProductService.getLoanProducts();
