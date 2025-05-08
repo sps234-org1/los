@@ -33,6 +33,16 @@ public class LoanDetails {
     @Column( name = "status")
     String status;
 
+    @Column( name = "application_id")
+    private Integer applicationId;
+
+    public Integer getApplicationId() {
+        return applicationId;
+    }
+
+    public void setApplicationId(Integer applicationId) {
+        this.applicationId = applicationId;
+    }
 
     public Integer getLoanId() {
         return loanId;

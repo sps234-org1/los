@@ -8,6 +8,8 @@ public interface LoanApplicationDao {
 
     public LoanApplicationDetails addLoanApplication(LoanApplicationDetails loanApplicationDetails);
 
+    public LoanApplicationDetails getLoanApplication( int applicationId);
+
     public LoanApplicationDetails getLoanApplicationByCustomerId(String customerId);
 
     public List<LoanApplicationDetails> getAllLoanApplications();

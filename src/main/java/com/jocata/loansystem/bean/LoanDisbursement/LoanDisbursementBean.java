@@ -1,29 +1,14 @@
-package com.jocata.loansystem.entity;
+package com.jocata.loansystem.bean.LoanDisbursement;
 
-import jakarta.persistence.*;
+import com.jocata.loansystem.entity.LoanDetails;
 
-@Entity
-@Table(name = "loan_disbursement")
-public class LoanDisbursementDetails {
+public class LoanDisbursementBean {
 
-    @Id
-    @Column(name = "disbursement_id")
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer disbursementId;
-
-    @ManyToOne
-    @JoinColumn(name = "loan_id", insertable = false, updatable = false)
     private LoanDetails loanDetails;
-
-    @Column(name = "disbursement_date")
     private String disbursementDate;
-
-    @Column(name = "disbursement_amount")
     private long disbursementAmount;
-
-    @Column(name = "disbursement_method")
     private String disbursementMethod;
-
 
     public Integer getDisbursementId() {
         return disbursementId;
@@ -33,6 +18,13 @@ public class LoanDisbursementDetails {
         this.disbursementId = disbursementId;
     }
 
+    public LoanDetails getLoanDetails() {
+        return loanDetails;
+    }
+
+    public void setLoanDetails(LoanDetails loanDetails) {
+        this.loanDetails = loanDetails;
+    }
 
     public String getDisbursementDate() {
         return disbursementDate;
@@ -56,13 +48,5 @@ public class LoanDisbursementDetails {
 
     public void setDisbursementMethod(String disbursementMethod) {
         this.disbursementMethod = disbursementMethod;
-    }
-
-    public LoanDetails getLoanDetails() {
-        return loanDetails;
-    }
-
-    public void setLoanDetails(LoanDetails loanDetails) {
-        this.loanDetails = loanDetails;
     }
 }

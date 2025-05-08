@@ -41,6 +41,11 @@ public class LoanApplicationDaoImpl implements LoanApplicationDao {
         return null;
     }
 
+    public LoanApplicationDetails getLoanApplication( int applicationId) {
+        Session session = sessionFactory.openSession();
+        return session.get(LoanApplicationDetails.class, applicationId);
+    }
+
     @Override
     public LoanApplicationDetails getLoanApplicationByCustomerId(String customerId) {
         Session session = sessionFactory.openSession();

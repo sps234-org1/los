@@ -1,29 +1,14 @@
-package com.jocata.loansystem.entity;
+package com.jocata.loansystem.bean.payment;
 
-import jakarta.persistence.*;
+import com.jocata.loansystem.entity.LoanDetails;
 
-@Entity
-@Table( name = "loan_payment" )
-public class LoanPaymentDetails {
+public class LoanPaymentBean {
 
-    @Id
-    @Column(name = "payment_id")
-    @GeneratedValue( strategy = GenerationType.IDENTITY)
     private Integer paymentId;
-
-    @Column(name = "payment_amount")
-    private Double paymentAmount;
-
-    @Column(name = "remaining_balance")
-    private Double remainingBalance;
-
-    @Column(name = "payment_method")
-    private String paymentMethod;
-
-    @ManyToOne
-    @JoinColumn( name = "loan_id", referencedColumnName = "loan_id" )
     private LoanDetails loanDetails;
-
+    private Double paymentAmount;
+    private Double remainingBalance;
+    private String paymentMethod;
 
     public Integer getPaymentId() {
         return paymentId;
@@ -64,4 +49,6 @@ public class LoanPaymentDetails {
     public void setPaymentMethod(String paymentMethod) {
         this.paymentMethod = paymentMethod;
     }
+
+
 }

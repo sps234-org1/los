@@ -6,7 +6,6 @@ import com.jocata.loansystem.bean.response.CibilResponse;
 import com.jocata.loansystem.dao.RiskAssessmentDao;
 import com.jocata.loansystem.entity.LoanApplicationDetails;
 import com.jocata.loansystem.entity.RiskAssessmentDetails;
-import com.jocata.loansystem.service.ExternalService;
 import com.jocata.loansystem.service.LoanProductService;
 import com.jocata.loansystem.service.RiskAssessmentService;
 import org.slf4j.Logger;
@@ -35,9 +34,10 @@ public class RiskAssessmentServiceImpl implements RiskAssessmentService {
     public String addRiskAssessmentDetailsUsingCibil(CibilResponse cibilResponse, LoanApplicationRequestBean loanApplicationRequestBean, LoanApplicationDetails loanApplicationDetails) {
 
         long annualIncome = loanApplicationRequestBean.getAnnualIncome();
-        double requestedLoanAmount = loanApplicationRequestBean.getRequestedTerm();
+        String reqTerm = loanApplicationRequestBean.getRequestedTerm();
+        double reqLoanAmount = loanApplicationRequestBean.getReqLoanAmount();
 
-        LoanProductResponseBean loanProductResponseBean = loanProductService.getLoanProductsByTenure("short");
+        LoanProductResponseBean loanProductResponseBean = loanProductService.getLoanProductsByTenure(reqTerm);
         logger.info("Loan Product Response fetched : {} term" , loanProductResponseBean.getProductName() );
         int termMonths = loanProductResponseBean.getTermMonths();
         double interestRate = loanProductResponseBean.getInterestRate();
@@ -57,14 +57,14 @@ public class RiskAssessmentServiceImpl implements RiskAssessmentService {
 
         long approvedAmount = 0;
 
-        if ( principal < requestedLoanAmount ) {
+        if ( principal < reqLoanAmount ) {
             approvedAmount = (long) principal;
             logger.info("Principal amount is : {} Sanctioned amount is : {}", principal, principal );
 
         }
         else {
-            approvedAmount = (long) requestedLoanAmount;
-            logger.info("Principal amount is : {} Sanctioned amount is : {}", principal, requestedLoanAmount);
+            approvedAmount = (long) reqLoanAmount;
+            logger.info("Principal amount is : {} Sanctioned amount is : {}", principal, reqLoanAmount);
         }
         return setRiskAssessmentDetails( approvalStatus, approvedAmount, termMonths, creditScore, annualIncome, loanApplicationDetails );
     }

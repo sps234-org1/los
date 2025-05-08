@@ -12,7 +12,7 @@ public class LoanApplicationRequestBean {
 
     private long reqLoanAmount;
 
-    private Integer requestedTerm;
+    private String requestedTerm;
 
     private String loanPurpose;
 
@@ -56,11 +56,11 @@ public class LoanApplicationRequestBean {
         this.reqLoanAmount = reqLoanAmount;
     }
 
-    public Integer getRequestedTerm() {
+    public String getRequestedTerm() {
         return requestedTerm;
     }
 
-    public void setRequestedTerm(Integer requestedTerm) {
+    public void setRequestedTerm(String requestedTerm) {
         this.requestedTerm = requestedTerm;
     }
 

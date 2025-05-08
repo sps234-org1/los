@@ -64,11 +64,13 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
 
     String addCibilUrl = "http://localhost:8080/externalservices2/api/v1/cibil/create";
 
+    long start ;
+
     @Override
     public String createLoanApplication(LoanApplicationRequestBean loanApplicationRequestBean) {
 
+        start = System.currentTimeMillis();
         String cibilUrl = "http://localhost:8080/externalservices2/api/v1/cibil/getCibil";
-        long start = System.currentTimeMillis();
         AadhaarResponse aadhaarResponse = null;
         PanResponse panResponse = null;
         CibilResponse cibilResponse = null;
@@ -83,70 +85,62 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
         } catch (Exception e) {
             msg("Error while fetching data from external services: " + e.getMessage());
         }
-        setDetails(panResponse, aadhaarResponse, cibilResponse, loanApplicationRequestBean);
-        logger.info("Time taken to create loan application: {} ms", System.currentTimeMillis() - start);
 
-        return "Loan application created successfully";
+        if ( aadhaarResponse == null ) {
+            return msg("Aadhaar response is null");
+        }
+        if( cibilResponse == null ) {
+            return msg("Cibil response is null");
+        }
+        if( panResponse == null ) {
+            return msg("Pan response is null");
+        }
+
+        return setDetails(panResponse, aadhaarResponse, cibilResponse, loanApplicationRequestBean);
     }
 
 
-    public void setDetails(PanResponse panResponse, AadhaarResponse aadhaarResponse, CibilResponse cibilResponse,
+    public String setDetails(PanResponse panResponse, AadhaarResponse aadhaarResponse, CibilResponse cibilResponse,
                            LoanApplicationRequestBean loanApplicationRequestBean) {
 
-        if (aadhaarResponse == null) {
-            msg("Aadhaar details not found");
-            return;
-        }
         CustomerDetails customerDetails = customerDao.addCustomerUsingAadhaar(aadhaarResponse);
-
         if (customerDetails == null) {
-            msg("Customer details still does not exist");
-            return;
+            return msg("Customer details is null");
         }
-
-        /**/
-        if (cibilResponse == null) {
-            msg("Cibil details not found");
-            return;
-        }
-        creditScoreDao.addCreditScoreDetailsUsingCibilResponse( cibilResponse, customerDetails );
-
-        if (panResponse == null) {
-            msg("PAN details not found");
-            return;
-        }
+        creditScoreDao.addCreditScoreDetailsUsingCibilResponse(cibilResponse, customerDetails);
 
         String customerId = customerDetails.getCustomerId().toString();
         LoanApplicationDetails loanApplicationDetails = addLoanApplication(customerId, customerDetails, loanApplicationRequestBean);
 
         if (loanApplicationDetails == null) {
-            msg("Loan application not created");
-            return;
+            return msg("Loan application details is null");
         }
 
         String res = riskAssessmentService.addRiskAssessmentDetailsUsingCibil(cibilResponse, loanApplicationRequestBean, loanApplicationDetails);
         logger.info(res);
 
-        int newOutstandingBalance = (int)(Double.parseDouble( cibilResponse.getTotalOutstandingBalance() ) + loanApplicationDetails.getLoanAmount() );
+        int newOutstandingBalance = (int) (Double.parseDouble(cibilResponse.getTotalOutstandingBalance()) + loanApplicationDetails.getLoanAmount());
 
-        setCibilDetails( newOutstandingBalance, cibilResponse );
+        setCibilDetails(newOutstandingBalance, cibilResponse);
         logger.info("Cibil details added successfully :{}", cibilResponse.getPan());
 
+        logger.info("Time taken for populating details : {} ms", System.currentTimeMillis() - start);
+        return "Loan application created successfully";
     }
 
-    public void setCibilDetails( long newOutstandingBalance, CibilResponse cibilResponse ) {
+    public void setCibilDetails(long newOutstandingBalance, CibilResponse cibilResponse) {
 
         CibilResponse newCibilInfo = new CibilResponse();
-        newCibilInfo.setPan( cibilResponse.getPan() );
-        newCibilInfo.setCreditScore( cibilResponse.getCreditScore() );
-        newCibilInfo.setCreditHistory( cibilResponse.getCreditHistory() );
-        newCibilInfo.setTotalOutstandingBalance(  String.valueOf( newOutstandingBalance ) );
-        newCibilInfo.setRecentCreditInquiries( cibilResponse.getRecentCreditInquiries() );
-        newCibilInfo.setPaymentHistory( cibilResponse.getPaymentHistory() );
-        newCibilInfo.setCreditLimit( cibilResponse.getCreditLimit() );
-        newCibilInfo.setStatus( "Active" );
-        newCibilInfo.setReportDate( String.valueOf(LocalDate.now()) );
-        externalService.addCibilDetails( addCibilUrl, newCibilInfo );
+        newCibilInfo.setPan(cibilResponse.getPan());
+        newCibilInfo.setCreditScore(cibilResponse.getCreditScore());
+        newCibilInfo.setCreditHistory(cibilResponse.getCreditHistory());
+        newCibilInfo.setTotalOutstandingBalance(String.valueOf(newOutstandingBalance));
+        newCibilInfo.setRecentCreditInquiries(cibilResponse.getRecentCreditInquiries());
+        newCibilInfo.setPaymentHistory(cibilResponse.getPaymentHistory());
+        newCibilInfo.setCreditLimit(cibilResponse.getCreditLimit());
+        newCibilInfo.setStatus("Active");
+        newCibilInfo.setReportDate(String.valueOf(LocalDate.now()));
+        externalService.addCibilDetails(addCibilUrl, newCibilInfo);
     }
 
     public LoanApplicationDetails addLoanApplication(String customerId, CustomerDetails customerDetails, LoanApplicationRequestBean loanApplicationRequestBean) {
@@ -154,7 +148,7 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
         long loanAmount = loanApplicationRequestBean.getReqLoanAmount();
         LoanProductDetails loanProductDetails = loanProductDao.getLoanProductByAmount(loanAmount);
         Integer productId = loanProductDetails.getId();
-        if ( productId == null) {
+        if (productId == null) {
             msg("Loan product not found");
             return null;
         }
@@ -174,11 +168,11 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
 
         loanApplicationDetails.setCustomerId(Integer.parseInt(customerId));
         loanApplicationDetails.setProductId(productId);
+        loanApplicationDetails.setLoanAmount(loanAmount);
         loanApplicationDetails.setLoanProductDetails(loanProductDetails);
         loanApplicationDetails.setCustomerDetails(customerDetails);
         loanApplicationDetails.setApplicationDate(LocalDate.now().toString());
         loanApplicationDetails.setLoanAmount(loanAmount);
-        loanApplicationDetails.setRequestedTerm(loanApplicationRequestBean.getRequestedTerm());
         loanApplicationDetails.setLoanPurpose(loanApplicationRequestBean.getLoanPurpose());
         loanApplicationDetails.setStatus("Applied");
         return loanApplicationDao.addLoanApplication(loanApplicationDetails);
@@ -204,6 +198,5 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
         logger.info(m);
         return m;
     }
-
 
 }

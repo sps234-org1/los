@@ -142,7 +142,7 @@ public class ExternalServiceImpl implements ExternalService {
 
         try {
             ObjectMapper objectMapper = new ObjectMapper();
-            String input3 = objectMapper.writeValueAsString(Map.of("pan", loanApplicationRequestBean.getPanNum()) );
+            String input3 = objectMapper.writeValueAsString(Map.of("panNum", loanApplicationRequestBean.getPanNum()) );
 
             HttpHeaders httpHeaders3 = new HttpHeaders();
             httpHeaders3.add(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
@@ -163,8 +163,8 @@ public class ExternalServiceImpl implements ExternalService {
                 if (cibilData.has("reportDate")) {
                     cibilResponse.setReportDate(cibilData.get("reportDate").asText());
                 }
-                if (cibilData.has("pan")) {
-                    cibilResponse.setPan(cibilData.get("pan").asText());
+                if (cibilData.has("panNum")) {
+                    cibilResponse.setPan(cibilData.get("panNum").asText());
                 }
                 if ( cibilData.has("creditLimit") ) {
                     cibilResponse.setCreditLimit(cibilData.get("creditLimit").asText());
@@ -243,3 +243,7 @@ public class ExternalServiceImpl implements ExternalService {
         return cibilResponse;
     }
 }
+
+
+
+
